@@ -1,0 +1,65 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Noto+Sans+Tamil:wght@400;500;600;700&family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+:root {
+  --font-sans: 'Plus Jakarta Sans', 'Noto Sans Tamil', 'Noto Sans Devanagari', sans-serif;
+  --font-heading: 'Outfit', 'Noto Sans Tamil', 'Noto Sans Devanagari', sans-serif;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: #FAF7F2;
+  color: #1E293B;
+  min-height: 100vh;
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #F1EBE4;
+}
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}
+
+/* Waveform Animation */
+@keyframes pulse-wave {
+  0%, 100% { height: 10px; }
+  50% { height: 36px; }
+}
+
+.animate-wave-1 { animation: pulse-wave 1.2s infinite ease-in-out 0s; }
+.animate-wave-2 { animation: pulse-wave 1.2s infinite ease-in-out 0.2s; }
+.animate-wave-3 { animation: pulse-wave 1.2s infinite ease-in-out 0.4s; }
+.animate-wave-4 { animation: pulse-wave 1.2s infinite ease-in-out 0.1s; }
+.animate-wave-5 { animation: pulse-wave 1.2s infinite ease-in-out 0.3s; }
+
+/* Custom Glassmorphism */
+.craft-glass {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* Smooth Touch Buttons */
+.touch-btn {
+  transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.touch-btn:active {
+  transform: scale(0.97);
+}
+
