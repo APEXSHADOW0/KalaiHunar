@@ -2,19 +2,30 @@ import React, { useState, useEffect } from 'react';
 import { useDemo } from '../../context/DemoContext';
 import { ConfidenceBadge } from '../common/ConfidenceBadge';
 import { Check, ArrowRight, Sparkles, AlertCircle } from 'lucide-react';
+import { CatalogService, PricingService, ExtractedProductAttributes } from '../../services/aiServices';
+import { useLanguage } from '../../i18n/LanguageContext';
 
 export const AIExtraction: React.FC = () => {
   const { setArtisanView, productDraft, setProductDraft } = useDemo();
+  const { language } = useLanguage();
   const [processingStep, setProcessingStep] = useState(0);
-  const [dimensionsValue, setDimensionsValue] = useState(productDraft.dimensions || '18cm x 10cm x 8cm');
+
+  // Extract dynamic attributes using the real smart NLP entity extractor
+  const [extracted, setExtracted] = useState<ExtractedProductAttributes>(() => {
+    return CatalogService.extractAttributes(productDraft.transcript || '', language);
+  });
+
+  const [dimensionsValue, setDimensionsValue] = useState(
+    productDraft.dimensions || extracted.dimensions || '20cm x 15cm x 10cm'
+  );
 
   const steps = [
-    '✓ Regional voice recognized',
-    '✓ Language acoustics analyzed',
-    '✓ Product category classified: Handicraft → Home Decor',
-    '✓ Material identified: Natural Clay / Terracotta',
-    '✓ Usage identified: Home & Living Decoration',
-    '✓ Production lead time extracted: 2 Days',
+    '✓ Regional voice recognized and translated',
+    '✓ Acoustic & phoneme analysis verified',
+    `✓ Product category classified: ${extracted.category}`,
+    `✓ Material identified: ${extracted.material}`,
+    `✓ Craft technique mapped: ${extracted.craft}`,
+    `✓ Production lead time extracted: ${extracted.productionTime}`,
     '✓ Generating 12 Regional Language Catalogs...',
   ];
 
@@ -24,19 +35,53 @@ export const AIExtraction: React.FC = () => {
     if (processingStep < steps.length) {
       const timer = setTimeout(() => {
         setProcessingStep((prev) => prev + 1);
-      }, 350);
+      }, 300);
       return () => clearTimeout(timer);
+    } else if (processingStep === steps.length) {
+      // Automatically update the product draft with the extracted attributes and generated multilingual catalog
+      const multilingualDescriptions = CatalogService.generateMultilingualCatalog(extracted);
+      const baseline = extracted.baselineCost;
+      const initialPriceBreakdown = PricingService.calculateExplainablePrice(
+        baseline.material,
+        baseline.labour,
+        baseline.packaging,
+        baseline.overhead,
+        30
+      );
+
+      setProductDraft((prev) => ({
+        ...prev,
+        category: extracted.category,
+        material: extracted.material,
+        craft: extracted.craft,
+        use: extracted.use,
+        productionTime: extracted.productionTime,
+        dimensions: dimensionsValue,
+        moq: extracted.moq,
+        capacityPerMonth: extracted.capacityPerMonth,
+        descriptions: multilingualDescriptions,
+        priceBreakdown: initialPriceBreakdown,
+        confidenceScores: extracted.confidenceScores,
+      }));
     }
-  }, [processingStep, steps.length]);
+  }, [processingStep, steps.length, extracted, dimensionsValue, setProductDraft]);
 
   const handleConfirmDimensions = () => {
     setProductDraft((prev) => ({
       ...prev,
       dimensions: dimensionsValue,
       confidenceScores: {
-        ...(prev.confidenceScores || { category: 0.96, material: 0.94, usage: 0.92, dimensions: 0.65 }),
-        dimensions: 0.95 // Upgraded to high confidence
-      }
+        ...(prev.confidenceScores || extracted.confidenceScores),
+        dimensions: 0.95, // Upgraded to high confidence
+      },
+    }));
+    setExtracted((prev) => ({
+      ...prev,
+      dimensions: dimensionsValue,
+      confidenceScores: {
+        ...prev.confidenceScores,
+        dimensions: 0.95,
+      },
     }));
   };
 
@@ -78,36 +123,36 @@ export const AIExtraction: React.FC = () => {
             <div className="flex items-center justify-between p-2.5 bg-white rounded-xl border border-amber-100">
               <div>
                 <span className="text-[10px] uppercase font-bold text-amber-700 block">Category</span>
-                <span className="text-sm font-bold text-amber-950">Handicraft → Home Decor</span>
+                <span className="text-sm font-bold text-amber-950">{extracted.category}</span>
               </div>
-              <ConfidenceBadge score={0.96} />
+              <ConfidenceBadge score={extracted.confidenceScores.category} />
             </div>
 
             {/* Material */}
             <div className="flex items-center justify-between p-2.5 bg-white rounded-xl border border-amber-100">
               <div>
                 <span className="text-[10px] uppercase font-bold text-amber-700 block">Material</span>
-                <span className="text-sm font-bold text-amber-950">Natural Clay (Terracotta)</span>
+                <span className="text-sm font-bold text-amber-950">{extracted.material}</span>
               </div>
-              <ConfidenceBadge score={0.94} />
+              <ConfidenceBadge score={extracted.confidenceScores.material} />
             </div>
 
             {/* Craft Method */}
             <div className="flex items-center justify-between p-2.5 bg-white rounded-xl border border-amber-100">
               <div>
                 <span className="text-[10px] uppercase font-bold text-amber-700 block">Craft Method</span>
-                <span className="text-sm font-bold text-amber-950">Handmade Pottery</span>
+                <span className="text-sm font-bold text-amber-950">{extracted.craft}</span>
               </div>
-              <ConfidenceBadge score={0.92} />
+              <ConfidenceBadge score={extracted.confidenceScores.usage} />
             </div>
 
             {/* Production Time */}
             <div className="flex items-center justify-between p-2.5 bg-white rounded-xl border border-amber-100">
               <div>
                 <span className="text-[10px] uppercase font-bold text-amber-700 block">Production Time</span>
-                <span className="text-sm font-bold text-amber-950">2 Days</span>
+                <span className="text-sm font-bold text-amber-950">{extracted.productionTime}</span>
               </div>
-              <ConfidenceBadge score={0.92} />
+              <ConfidenceBadge score={0.94} />
             </div>
 
             {/* Dimensions (CONFIDENCE-AWARE HIGHLIGHT) */}
@@ -117,10 +162,10 @@ export const AIExtraction: React.FC = () => {
                   <span className="text-[10px] uppercase font-bold text-amber-800 block">Dimensions (Height & Width)</span>
                   <span className="text-sm font-bold text-amber-950">{dimensionsValue}</span>
                 </div>
-                <ConfidenceBadge score={productDraft.confidenceScores?.dimensions || 0.65} />
+                <ConfidenceBadge score={extracted.confidenceScores.dimensions} />
               </div>
 
-              {(productDraft.confidenceScores?.dimensions ?? 0.65) < 0.8 && (
+              {extracted.confidenceScores.dimensions < 0.8 && (
                 <div className="pt-2 border-t border-amber-200 text-xs">
                   <p className="text-amber-900 font-semibold mb-2 flex items-center gap-1">
                     <AlertCircle className="w-4 h-4 text-amber-700" />

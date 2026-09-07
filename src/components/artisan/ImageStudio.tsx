@@ -5,7 +5,7 @@ import { Check, ArrowRight, RotateCcw, Sparkles } from 'lucide-react';
 import { VisionService, ImageAnalysisResult } from '../../services/aiServices';
 
 export const ImageStudio: React.FC = () => {
-  const { setArtisanView, productDraft } = useDemo();
+  const { setArtisanView, productDraft, setProductDraft } = useDemo();
   const [analyzing, setAnalyzing] = useState(true);
   const [analysis, setAnalysis] = useState<ImageAnalysisResult | null>(null);
 
@@ -15,10 +15,22 @@ export const ImageStudio: React.FC = () => {
       if (isMounted) {
         setAnalysis(res);
         setAnalyzing(false);
+        // Persist real enhanced image and quality score into the product draft
+        setProductDraft((prev) => ({
+          ...prev,
+          enhancedImage: res.enhancedImageUrl,
+          qualityScore: {
+            photo: res.qualityScore,
+            details: Math.round(res.qualityScore * 0.96),
+            description: 92,
+            pricing: 88,
+            overall: Math.round((res.qualityScore + 92 + 88) / 3),
+          },
+        }));
       }
     });
     return () => { isMounted = false; };
-  }, [productDraft.originalImage]);
+  }, [productDraft.originalImage, setProductDraft]);
 
   return (
     <div className="max-w-md mx-auto space-y-5 p-4 bg-white rounded-3xl border border-amber-200 shadow-md">

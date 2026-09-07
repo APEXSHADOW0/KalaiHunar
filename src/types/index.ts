@@ -96,6 +96,8 @@ export interface Product {
   createdAt: string;
   rfqsCount: number;
   syncStatus?: SyncStatus;
+  transcript?: string;
+  audioUrl?: string;
 }
 
 export interface BuyerRFQ {
