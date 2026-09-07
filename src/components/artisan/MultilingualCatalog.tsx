@@ -2,14 +2,31 @@ import React, { useState } from 'react';
 import { useDemo } from '../../context/DemoContext';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { Language } from '../../types';
-import { Check, Edit, Info, ArrowRight, Sparkles, ChevronDown, ChevronUp, Volume2, ChevronLeft } from 'lucide-react';
+import {
+  Check,
+  Edit,
+  Info,
+  ArrowRight,
+  Sparkles,
+  ChevronDown,
+  ChevronUp,
+  ChevronLeft,
+  Globe,
+  RefreshCw,
+} from 'lucide-react';
+import { AudioCatalogPlayer } from '../common/AudioCatalogPlayer';
+import { TranslationService } from '../../services/translationService';
+import { RealtimeTranslatorModal } from '../common/RealtimeTranslatorModal';
 
 export const MultilingualCatalog: React.FC = () => {
   const { setArtisanView, productDraft, setProductDraft } = useDemo();
-  const { language, t, speakText, isSpeaking, stopSpeaking, supportedLanguages } = useLanguage();
+  const { language, t, supportedLanguages } = useLanguage();
   const [activeLang, setActiveLang] = useState<Language>(language || 'ta');
   const [showAiRationale, setShowAiRationale] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [isAutoTranslating, setIsAutoTranslating] = useState(false);
+  const [translateSuccess, setTranslateSuccess] = useState(false);
+  const [showLiveTranslator, setShowLiveTranslator] = useState(false);
 
   const currentDesc =
     productDraft.descriptions?.[activeLang] ||
@@ -50,11 +67,29 @@ export const MultilingualCatalog: React.FC = () => {
     setIsEditing(false);
   };
 
-  const handleListenCatalog = () => {
-    if (isSpeaking) {
-      stopSpeaking();
-    } else {
-      speakText(`${currentDesc.title}. ${currentDesc.shortDescription}`, activeLang);
+  // Real-time automatic translation across all 12 regional languages
+  const handleAutoTranslateAll = async () => {
+    if (!productDraft.descriptions) return;
+    setIsAutoTranslating(true);
+    setTranslateSuccess(false);
+
+    try {
+      const updatedDescriptions = await TranslationService.translateProductCatalog(
+        productDraft.descriptions,
+        activeLang
+      );
+
+      setProductDraft((prev) => ({
+        ...prev,
+        descriptions: updatedDescriptions,
+      }));
+
+      setTranslateSuccess(true);
+      setTimeout(() => setTranslateSuccess(false), 3000);
+    } catch {
+      // ignore
+    } finally {
+      setIsAutoTranslating(false);
     }
   };
 
@@ -83,9 +118,17 @@ export const MultilingualCatalog: React.FC = () => {
 
       {/* Regional Language Tabs (horizontal scroll for 12 languages) */}
       <div className="space-y-1.5">
-        <span className="text-[11px] font-bold text-amber-900 uppercase tracking-wider block">
-          Select Regional Language View:
-        </span>
+        <div className="flex items-center justify-between text-[11px] font-bold text-amber-900">
+          <span className="uppercase tracking-wider">Select Regional Language View:</span>
+          <button
+            onClick={() => setShowLiveTranslator(true)}
+            className="text-amber-700 hover:text-amber-950 flex items-center gap-1 text-[11px] underline"
+          >
+            <Globe className="w-3 h-3" />
+            <span>Open Real-Time Translator</span>
+          </button>
+        </div>
+
         <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
           {supportedLanguages.map((l) => (
             <button
@@ -103,19 +146,54 @@ export const MultilingualCatalog: React.FC = () => {
         </div>
       </div>
 
+      {/* 1-Click Real-Time Auto-Translate All Bar */}
+      <div className="flex items-center justify-between p-2.5 bg-gradient-to-r from-amber-50 to-orange-50 rounded-2xl border border-amber-300 shadow-2xs">
+        <div className="space-y-0.5">
+          <span className="text-[11px] font-bold text-amber-950 flex items-center gap-1">
+            <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+            <span>Real-Time Multi-Language Sync</span>
+          </span>
+          <span className="text-[10px] text-amber-800 block">
+            Translate active edits into all 12 regional languages
+          </span>
+        </div>
+
+        <button
+          onClick={handleAutoTranslateAll}
+          disabled={isAutoTranslating}
+          className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all ${
+            translateSuccess
+              ? 'bg-emerald-600 text-white'
+              : 'bg-amber-600 hover:bg-amber-700 text-white'
+          }`}
+        >
+          <RefreshCw className={`w-3.5 h-3.5 ${isAutoTranslating ? 'animate-spin' : ''}`} />
+          <span>
+            {isAutoTranslating
+              ? 'Translating 12 Langs...'
+              : translateSuccess
+              ? '✓ All 12 Synced'
+              : 'Translate to All'}
+          </span>
+        </button>
+      </div>
+
+      {/* Embedded Real-Time Audio Enhanced Catalog Player */}
+      <AudioCatalogPlayer
+        product={productDraft}
+        defaultLanguage={activeLang}
+        showLanguageSelector={false}
+      />
+
       {/* Catalog Preview Card */}
       <div className="bg-stone-50 p-4 rounded-2xl border border-amber-200 space-y-3 relative shadow-xs">
         <div className="flex items-center justify-between">
           <span className="inline-block px-2.5 py-0.5 rounded-full bg-amber-200 text-amber-900 text-[10px] font-bold">
             AI-Suggested • Authenticity Preserved
           </span>
-          <button
-            onClick={handleListenCatalog}
-            className="text-xs text-amber-800 hover:text-amber-950 font-bold flex items-center gap-1 bg-white px-2 py-1 rounded-lg border border-amber-200"
-          >
-            <Volume2 className={`w-3.5 h-3.5 ${isSpeaking ? 'text-rose-600 animate-bounce' : 'text-amber-600'}`} />
-            <span>{isSpeaking ? 'Stop voice' : 'Listen'}</span>
-          </button>
+          <span className="text-[10px] font-bold text-amber-800">
+            Language: {supportedLanguages.find((l) => l.code === activeLang)?.name}
+          </span>
         </div>
 
         {isEditing ? (
@@ -194,7 +272,7 @@ export const MultilingualCatalog: React.FC = () => {
             </div>
             <div className="flex items-center gap-1.5">
               <Check className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Verified material: Natural clay pottery</span>
+              <span>Verified material: Natural craft raw materials</span>
             </div>
             <div className="flex items-center gap-1.5">
               <Check className="w-3.5 h-3.5 text-emerald-600" />
@@ -224,6 +302,12 @@ export const MultilingualCatalog: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* Real-time Translator Modal */}
+      <RealtimeTranslatorModal
+        isOpen={showLiveTranslator}
+        onClose={() => setShowLiveTranslator(false)}
+      />
     </div>
   );
 };

@@ -1,7 +1,20 @@
 import React, { useState } from 'react';
 import { useDemo } from '../../context/DemoContext';
 import { useLanguage } from '../../i18n/LanguageContext';
-import { Sparkles, RefreshCw, User, ShoppingBag, BarChart3, Globe, Bell, Wifi, WifiOff, ChevronDown } from 'lucide-react';
+import {
+  Sparkles,
+  RefreshCw,
+  User,
+  ShoppingBag,
+  BarChart3,
+  Globe,
+  Bell,
+  Wifi,
+  WifiOff,
+  ChevronDown,
+  Languages,
+} from 'lucide-react';
+import { RealtimeTranslatorModal } from './RealtimeTranslatorModal';
 
 export const Header: React.FC = () => {
   const {
@@ -17,6 +30,7 @@ export const Header: React.FC = () => {
 
   const { language, setLanguage, supportedLanguages, t } = useLanguage();
   const [showLangDropdown, setShowLangDropdown] = useState(false);
+  const [showTranslatorModal, setShowTranslatorModal] = useState(false);
 
   const activeLangMeta = supportedLanguages.find((l) => l.code === language) || supportedLanguages[0];
 
@@ -29,7 +43,7 @@ export const Header: React.FC = () => {
             {t('demoMode')}
           </span>
           <span className="hidden sm:inline">
-            <strong>KALAIHUNAR</strong> — Voice-First AI Business Manager for Marginalized Artisans
+            <strong>KALAIHUNAR</strong> — Real-Time Multi-Language Audio & AI Vision Business Manager
           </span>
         </div>
 
@@ -124,8 +138,19 @@ export const Header: React.FC = () => {
           </button>
         </div>
 
-        {/* Controls: Notifications & Regional Languages Dropdown */}
+        {/* Controls: Real-Time Translator, Notifications & Regional Languages Dropdown */}
         <div className="flex items-center gap-2">
+          {/* Universal Real-Time Translator Quick Launch Button */}
+          <button
+            onClick={() => setShowTranslatorModal(true)}
+            className="flex items-center gap-1.5 bg-amber-800 hover:bg-amber-700 text-amber-100 px-2.5 sm:px-3 py-1.5 rounded-xl border border-amber-600/70 text-xs font-bold transition-all shadow-xs"
+            title="Open Universal Real-Time Multi-Language AI Translator"
+          >
+            <Languages className="w-3.5 h-3.5 text-amber-300" />
+            <span className="hidden md:inline">Real-Time Translator</span>
+            <span className="md:hidden">Translate</span>
+          </button>
+
           {/* Notification Alert Bell */}
           <button
             onClick={() => {
@@ -187,6 +212,12 @@ export const Header: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Global Real-Time Translator Modal */}
+      <RealtimeTranslatorModal
+        isOpen={showTranslatorModal}
+        onClose={() => setShowTranslatorModal(false)}
+      />
     </header>
   );
 };

@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { Product } from '../../types';
+import { useLanguage } from '../../i18n/LanguageContext';
 import { RFQModal } from './RFQModal';
 import { ArrowLeft, ShieldCheck, MapPin, Send, CheckCircle2 } from 'lucide-react';
+import { AudioCatalogPlayer } from '../common/AudioCatalogPlayer';
 
 interface ProductDetailProps {
   product: Product;
@@ -9,11 +11,14 @@ interface ProductDetailProps {
 }
 
 export const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack }) => {
+  const { language } = useLanguage();
   const [showRfqModal, setShowRfqModal] = useState(false);
   const [rfqSubmittedSuccess, setRfqSubmittedSuccess] = useState(false);
 
+  const desc = product.descriptions[language] || product.descriptions.en;
+
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
+    <div className="max-w-5xl mx-auto space-y-6 animate-fade-in">
       {/* Top Back Navigation */}
       <button
         onClick={onBack}
@@ -25,18 +30,27 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack })
 
       {/* Main Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 bg-white p-6 md:p-8 rounded-3xl border border-amber-200 shadow-xl">
-        {/* Left Column: Product Gallery */}
+        {/* Left Column: Product Gallery & Cluster Traceability */}
         <div className="space-y-4">
           <div className="relative aspect-4/3 rounded-2xl overflow-hidden shadow-lg border border-amber-200 bg-stone-100">
             <img
               src={product.enhancedImage || product.originalImage}
-              alt={product.descriptions.en.title}
+              alt={desc.title}
               className="w-full h-full object-cover"
             />
             <span className="absolute top-3 left-3 bg-emerald-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md flex items-center gap-1">
               <ShieldCheck className="w-4 h-4" />
               <span>Verified Artisan Cluster</span>
             </span>
+          </div>
+
+          {/* Full Spoken Audio-Enhanced Catalog Narration */}
+          <div className="space-y-1">
+            <AudioCatalogPlayer
+              product={product}
+              defaultLanguage={language}
+              showLanguageSelector={true}
+            />
           </div>
 
           <div className="bg-amber-50 p-4 rounded-2xl border border-amber-200 space-y-2 text-xs text-amber-900">
@@ -65,12 +79,12 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack })
                 <span>{product.artisanName} • {product.artisanLocation}</span>
               </div>
               <h1 className="text-2xl md:text-3xl font-extrabold text-amber-950 leading-tight m-0">
-                {product.descriptions.en.title}
+                {desc.title}
               </h1>
             </div>
 
             <p className="text-sm text-amber-950 font-medium leading-relaxed m-0">
-              {product.descriptions.en.longDescription}
+              {desc.longDescription}
             </p>
 
             {/* Specifications Cards Grid */}
