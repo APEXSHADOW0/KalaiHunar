@@ -11,6 +11,7 @@ export type ArtisanView =
   | 'image-review'
   | 'voice-description'
   | 'ai-processing'
+  | 'autonomous-processing'
   | 'catalog-review'
   | 'pricing'
   | 'publish-success'

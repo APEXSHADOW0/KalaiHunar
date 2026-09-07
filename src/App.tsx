@@ -10,6 +10,7 @@ import { CameraStudio } from './components/artisan/CameraStudio';
 import { ImageStudio } from './components/artisan/ImageStudio';
 import { VoiceDescription } from './components/artisan/VoiceDescription';
 import { AIExtraction } from './components/artisan/AIExtraction';
+import { AutonomousAIProcessor } from './components/artisan/AutonomousAIProcessor';
 import { MultilingualCatalog } from './components/artisan/MultilingualCatalog';
 import { PricingAssistant } from './components/artisan/PricingAssistant';
 import { PublishSuccess } from './components/artisan/PublishSuccess';
@@ -39,6 +40,8 @@ const AppContent: React.FC = () => {
         return <VoiceDescription />;
       case 'ai-processing':
         return <AIExtraction />;
+      case 'autonomous-processing':
+        return <AutonomousAIProcessor />;
       case 'catalog-review':
         return <MultilingualCatalog />;
       case 'pricing':

@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useDemo } from '../../context/DemoContext';
+import { useLanguage } from '../../i18n/LanguageContext';
 import {
   Camera,
   Flashlight,
@@ -9,51 +10,71 @@ import {
   RefreshCw,
   Check,
   Wand2,
+  Mic,
+  Square,
 } from 'lucide-react';
-import { AIVisionEnhancer } from '../../services/imageEnhancer';
 
 const CRAFT_PRESETS = [
   {
     name: 'Terracotta Pottery',
     url: 'https://images.unsplash.com/photo-1578749556568-bc2c40e68b61?auto=format&fit=crop&q=80&w=800',
     type: 'Clay',
+    voiceSample: 'Handcrafted traditional terracotta decorative doll sculpted from natural river clay. Ideal for home decor. Takes 2 days to make.',
+    voiceSampleNative: 'இது மதுரையில் களிமண்ணால் செய்யப்பட்ட பாரம்பரிய மண் பொம்மை. வீட்டை அலங்கரிக்க சிறந்தது. செய்ய 2 நாட்கள் ஆகும்.',
   },
   {
     name: 'Handloom Silk Saree',
     url: 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&q=80&w=800',
     type: 'Silk',
+    voiceSample: 'Pure handloom silk saree woven on traditional pit loom with golden zari border. Production requires 4 days.',
+    voiceSampleNative: 'இது காஞ்சிபுரம் தூய பட்டு மற்றும் ஜரிகை நெசவு சேலை. நெசவு செய்ய 4 நாட்கள் ஆகும்.',
   },
   {
     name: 'Heritage Brass Diya',
     url: 'https://images.unsplash.com/photo-1605379399642-870262d3d051?auto=format&fit=crop&q=80&w=800',
     type: 'Brass',
+    voiceSample: 'Traditional solid brass handmade diya lamp with intricate engraving for puja and heritage decor.',
+    voiceSampleNative: 'இது பித்தளையால் வார்க்கப்பட்டு கையால் செதுக்கப்பட்ட பாரம்பரிய விளக்கு.',
   },
   {
     name: 'Teak Wood Carving',
     url: 'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?auto=format&fit=crop&q=80&w=800',
     type: 'Wood',
+    voiceSample: 'Hand-carved solid teak wood traditional sculpture sculpted with chisel. 25cm height.',
+    voiceSampleNative: 'இது தேக்கு மரத்தில் கை உளியால் செதுக்கப்பட்ட பாரம்பரிய கலைப் பொருள்.',
   },
   {
     name: 'Eco Fiber Basket',
     url: 'https://images.unsplash.com/photo-1590736969955-71cc94801759?auto=format&fit=crop&q=80&w=800',
     type: 'Fiber',
+    voiceSample: 'Handcrafted eco-friendly kora grass storage basket braided from natural river grass.',
+    voiceSampleNative: 'இயற்கை கோரை புல் கொண்டு கையால் பின்னப்பட்ட சூழல்-நட்பு சேமிப்பு கூடை.',
   },
 ];
 
 export const CameraStudio: React.FC = () => {
   const { setArtisanView, setProductDraft } = useDemo();
+  const { language, supportedLanguages } = useLanguage();
+
   const [flashOn, setFlashOn] = useState(false);
   const [aiBoostMode, setAiBoostMode] = useState(true);
-  const [isCapturing, setIsCapturing] = useState(false);
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [previewImage, setPreviewImage] = useState<string>(CRAFT_PRESETS[0].url);
-  const [enhancementPhase, setEnhancementPhase] = useState<number | null>(null);
   const [shutterFlash, setShutterFlash] = useState(false);
+
+  // 2-Step (Photo + Voice) Flow State
+  const [showVoicePrompt, setShowVoicePrompt] = useState(false);
+  const [capturedImageUrl, setCapturedImageUrl] = useState<string>(CRAFT_PRESETS[0].url);
+  const [isRecording, setIsRecording] = useState(false);
+  const [liveTranscript, setLiveTranscript] = useState('');
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const speechRecognizerRef = useRef<any>(null);
+
+  const activeLangMeta = supportedLanguages.find((l) => l.code === language) || supportedLanguages[0];
 
   // Initialize camera stream
   useEffect(() => {
@@ -85,14 +106,46 @@ export const CameraStudio: React.FC = () => {
     };
   }, []);
 
-  const handleCapturePhoto = async () => {
-    setIsCapturing(true);
+  // Initialize Speech Recognition for live microphone input
+  useEffect(() => {
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      try {
+        const recognizer = new SpeechRecognition();
+        recognizer.continuous = true;
+        recognizer.interimResults = true;
+        recognizer.lang = activeLangMeta.bcp47 || 'ta-IN';
+
+        recognizer.onresult = (event: any) => {
+          let current = '';
+          for (let i = 0; i < event.results.length; i++) {
+            current += event.results[i][0].transcript;
+          }
+          if (current.trim()) {
+            setLiveTranscript(current);
+          }
+        };
+
+        recognizer.onerror = () => {
+          setIsRecording(false);
+        };
+
+        speechRecognizerRef.current = recognizer;
+      } catch {
+        // Speech recognition not supported
+      }
+    }
+  }, [activeLangMeta]);
+
+  // Step 1: User takes Photo
+  const handleSnapPhoto = () => {
     setShutterFlash(true);
     setTimeout(() => setShutterFlash(false), 200);
 
     let capturedUrl = previewImage;
 
-    // If live camera is active, grab the live frame from video
+    // Grab video frame if camera is live
     if (cameraActive && videoRef.current && canvasRef.current) {
       const video = videoRef.current;
       const canvas = canvasRef.current;
@@ -109,86 +162,84 @@ export const CameraStudio: React.FC = () => {
       }
     }
 
-    // Real-Time 4-Phase AI Enhancement Pipeline
-    setEnhancementPhase(1);
+    setCapturedImageUrl(capturedUrl);
+    setProductDraft((prev) => ({
+      ...prev,
+      originalImage: capturedUrl,
+    }));
 
-    setTimeout(() => setEnhancementPhase(2), 220);
-    setTimeout(() => setEnhancementPhase(3), 440);
-    setTimeout(() => setEnhancementPhase(4), 660);
-
-    // Run real pixel-level Canvas enhancement concurrently
-    const enhancePromise = AIVisionEnhancer.enhance(capturedUrl, {
-      preset: 'heritage_studio',
-      sharpness: 45,
-      contrast: 12,
-      brightness: 6,
-      saturation: 65,
-    });
-
-    const enhancedResult = await enhancePromise;
-
-    setTimeout(() => {
-      // Save original and real-time enhanced image to product draft
-      setProductDraft((prev) => ({
-        ...prev,
-        originalImage: capturedUrl,
-        enhancedImage: enhancedResult.enhancedDataUrl,
-        qualityScore: {
-          photo: enhancedResult.qualityScore,
-          details: enhancedResult.metrics.sharpnessScore,
-          description: 92,
-          pricing: 88,
-          overall: Math.round((enhancedResult.qualityScore + 92 + 88) / 3),
-        },
-      }));
-
-      setIsCapturing(false);
-      setEnhancementPhase(null);
-      setArtisanView('image-review');
-    }, 900);
+    // Step 2 Trigger: Instantly open voice prompt for description
+    setShowVoicePrompt(true);
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onload = async (event) => {
+      reader.onload = (event) => {
         if (event.target?.result) {
           const dataUrl = event.target.result as string;
           setPreviewImage(dataUrl);
+          setCapturedImageUrl(dataUrl);
           setCameraActive(false);
-
-          setEnhancementPhase(1);
-          setTimeout(() => setEnhancementPhase(2), 200);
-          setTimeout(() => setEnhancementPhase(3), 400);
-
-          const enhancedResult = await AIVisionEnhancer.enhance(dataUrl, {
-            preset: 'heritage_studio',
-          });
-
           setProductDraft((prev) => ({
             ...prev,
             originalImage: dataUrl,
-            enhancedImage: enhancedResult.enhancedDataUrl,
           }));
-
-          setTimeout(() => {
-            setEnhancementPhase(null);
-            setArtisanView('image-review');
-          }, 600);
+          setShowVoicePrompt(true);
         }
       };
       reader.readAsDataURL(file);
     }
   };
 
-  const handleSelectPreset = (url: string) => {
-    setPreviewImage(url);
+  const handleSelectPreset = (preset: typeof CRAFT_PRESETS[0]) => {
+    setPreviewImage(preset.url);
+    setCapturedImageUrl(preset.url);
     setCameraActive(false);
     setProductDraft((prev) => ({
       ...prev,
-      originalImage: url,
+      originalImage: preset.url,
+      transcript: language === 'en' ? preset.voiceSample : preset.voiceSampleNative,
     }));
+  };
+
+  // Step 2: User provides Audio Description -> AI DOES EVERYTHING ELSE!
+  const handleStartVoiceRecording = () => {
+    setLiveTranscript('');
+    setIsRecording(true);
+    try {
+      speechRecognizerRef.current?.start();
+    } catch {
+      // already active
+    }
+  };
+
+  const handleStopVoiceAndTriggerAI = (customText?: string) => {
+    setIsRecording(false);
+    try {
+      speechRecognizerRef.current?.stop();
+    } catch {
+      // ignore
+    }
+
+    const finalTranscript =
+      customText ||
+      liveTranscript.trim() ||
+      (language === 'en'
+        ? CRAFT_PRESETS[0].voiceSample
+        : CRAFT_PRESETS[0].voiceSampleNative);
+
+    // Save final audio description
+    setProductDraft((prev) => ({
+      ...prev,
+      originalImage: capturedImageUrl,
+      transcript: finalTranscript,
+    }));
+
+    // IMMEDIATELY TRIGGER AUTONOMOUS AI PIPELINE (AI DOES EVERYTHING!)
+    setShowVoicePrompt(false);
+    setArtisanView('autonomous-processing');
   };
 
   return (
@@ -227,7 +278,7 @@ export const CameraStudio: React.FC = () => {
           }`}
         >
           <Wand2 className={`w-3.5 h-3.5 ${aiBoostMode ? 'animate-spin' : ''}`} />
-          <span>{aiBoostMode ? 'Real-Time AI Boost Active' : 'AI Lens Normal'}</span>
+          <span>{aiBoostMode ? 'AI Autopilot Ready' : 'AI Lens Normal'}</span>
         </button>
 
         <button
@@ -270,7 +321,7 @@ export const CameraStudio: React.FC = () => {
           </div>
           <span className="text-[11px] font-bold text-amber-300 bg-slate-950/80 px-2.5 py-1 rounded-lg backdrop-blur-md flex items-center gap-1">
             <Sparkles className="w-3 h-3 text-amber-400" />
-            <span>Center Craft Item for Real-Time AI Lens</span>
+            <span>Step 1: Snap Photo (AI will enhance)</span>
           </span>
           <div className="w-full flex justify-between">
             <span className="w-4 h-4 border-b-2 border-l-2 border-amber-400"></span>
@@ -278,89 +329,111 @@ export const CameraStudio: React.FC = () => {
           </div>
         </div>
 
-        {/* Real-Time AI Enhancement Progress Pipeline Overlay */}
-        {enhancementPhase !== null && (
-          <div className="absolute inset-0 z-30 bg-slate-950/85 backdrop-blur-md flex flex-col items-center justify-center p-6 space-y-4 animate-fade-in">
-            <div className="w-14 h-14 rounded-2xl bg-amber-500 text-slate-950 flex items-center justify-center shadow-2xl animate-pulse">
-              <Sparkles className="w-8 h-8" />
-            </div>
-
-            <div className="text-center space-y-1">
-              <h3 className="text-lg font-extrabold text-white m-0">
-                Enhancing in Real Time...
-              </h3>
-              <p className="text-xs text-amber-300 font-medium">
-                Pixel-level AI restoration & studio illumination
-              </p>
-            </div>
-
-            <div className="w-full max-w-xs space-y-2 text-xs">
-              <div className="flex items-center gap-2 text-amber-200">
-                {enhancementPhase >= 1 ? (
-                  <Check className="w-4 h-4 text-emerald-400" />
-                ) : (
-                  <div className="w-4 h-4 rounded-full border border-amber-400 animate-spin"></div>
-                )}
-                <span>Extracting micro-textures & edge sharpness</span>
-              </div>
-
-              <div className="flex items-center gap-2 text-amber-200">
-                {enhancementPhase >= 2 ? (
-                  <Check className="w-4 h-4 text-emerald-400" />
-                ) : (
-                  <div className="w-4 h-4 rounded-full border border-amber-400 animate-spin"></div>
-                )}
-                <span>Balancing natural lighting & shadow neutralization</span>
-              </div>
-
-              <div className="flex items-center gap-2 text-amber-200">
-                {enhancementPhase >= 3 ? (
-                  <Check className="w-4 h-4 text-emerald-400" />
-                ) : (
-                  <div className="w-4 h-4 rounded-full border border-amber-400 animate-spin"></div>
-                )}
-                <span>Preserving authentic artisan pigments</span>
-              </div>
-
-              <div className="flex items-center gap-2 text-amber-200">
-                {enhancementPhase >= 4 ? (
-                  <Check className="w-4 h-4 text-emerald-400" />
-                ) : (
-                  <div className="w-4 h-4 rounded-full border border-amber-400 animate-spin"></div>
-                )}
-                <span>Generating luxury neutral studio backdrop</span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Dynamic AI Quality Tip */}
+        {/* Dynamic Tip */}
         <div className="absolute bottom-3 inset-x-3 bg-slate-950/90 border border-amber-400/40 rounded-xl p-2 flex items-center justify-center gap-1.5 text-[11px] font-semibold text-amber-200 backdrop-blur-md z-10">
           <span>
             {cameraError
               ? `💡 ${cameraError}`
-              : '💡 Real-time AI will automatically sharpen details and balance lighting upon capture.'}
+              : '💡 Snap photo & speak description — AI handles enhancement, 12 languages & publishing!'}
           </span>
         </div>
       </div>
 
+      {/* Step 2: Instant Voice Prompt Overlay (User gives voice, AI does the rest!) */}
+      {showVoicePrompt && (
+        <div className="absolute inset-0 z-40 bg-slate-950/90 backdrop-blur-md flex flex-col justify-between p-5 animate-fade-in">
+          <div className="text-center space-y-1.5 pt-2">
+            <div className="w-12 h-12 rounded-2xl bg-amber-500 text-slate-950 mx-auto flex items-center justify-center shadow-lg animate-bounce">
+              <Mic className="w-7 h-7" />
+            </div>
+            <h3 className="text-xl font-extrabold text-white m-0">Step 2: Speak Audio Description</h3>
+            <p className="text-xs text-amber-300 font-medium">
+              Speak naturally in {activeLangMeta.name} ({activeLangMeta.nativeName})
+            </p>
+          </div>
+
+          {/* Microphone Recording Button */}
+          <div className="flex flex-col items-center justify-center py-4 space-y-3">
+            <button
+              onClick={isRecording ? () => handleStopVoiceAndTriggerAI() : handleStartVoiceRecording}
+              className={`w-24 h-24 rounded-full flex flex-col items-center justify-center shadow-2xl transition-all active:scale-95 ${
+                isRecording
+                  ? 'bg-rose-600 ring-4 ring-rose-400 animate-pulse text-white'
+                  : 'bg-gradient-to-tr from-amber-600 to-amber-400 text-slate-950 hover:scale-105'
+              }`}
+            >
+              {isRecording ? <Square className="w-9 h-9" /> : <Mic className="w-9 h-9" />}
+              <span className="text-[10px] font-black uppercase mt-1">
+                {isRecording ? 'Done (Run AI)' : 'Tap to Speak'}
+              </span>
+            </button>
+
+            {/* Live speech preview if recording */}
+            {isRecording && (
+              <div className="p-3 bg-amber-950/80 rounded-xl border border-amber-500/60 text-center max-w-xs animate-pulse">
+                <span className="text-[10px] uppercase font-bold text-amber-400 block mb-0.5">
+                  Listening in {activeLangMeta.name}...
+                </span>
+                <p className="text-xs text-white font-semibold italic m-0">
+                  "{liveTranscript || 'Describe material, time to make, or use...'}"
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Quick Craft Voice Samples (1-Tap Test) */}
+          <div className="space-y-2 bg-slate-900/90 p-3.5 rounded-2xl border border-amber-500/30">
+            <div className="flex items-center justify-between text-[11px] font-bold text-amber-300">
+              <span>Or Select a Craft Voice Audio:</span>
+              <span className="text-[10px] text-amber-400 bg-amber-500/20 px-2 py-0.5 rounded">1-Tap Autopilot</span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-1.5">
+              {CRAFT_PRESETS.slice(0, 4).map((cp) => (
+                <button
+                  key={cp.name}
+                  onClick={() =>
+                    handleStopVoiceAndTriggerAI(
+                      language === 'en' ? cp.voiceSample : cp.voiceSampleNative
+                    )
+                  }
+                  className="p-2 bg-slate-800 hover:bg-amber-600/80 text-white rounded-xl text-left border border-slate-700 transition-colors text-xs"
+                >
+                  <span className="block font-bold text-amber-300">{cp.name}</span>
+                  <span className="block text-[10px] text-stone-300 line-clamp-1">
+                    {language === 'en' ? cp.voiceSample : cp.voiceSampleNative}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <button
+            onClick={() => setShowVoicePrompt(false)}
+            className="w-full py-2 text-xs font-semibold text-stone-400 hover:text-white"
+          >
+            Cancel / Retake Photo
+          </button>
+        </div>
+      )}
+
       {/* Choose from Craft Sample Presets (For Instant Testing) */}
       <div className="space-y-1.5 z-10 pb-2">
         <div className="flex items-center justify-between text-[11px] font-bold text-amber-300">
-          <span>Or Choose a Craft to Test:</span>
+          <span>Choose a Craft Preset:</span>
           <button
             onClick={() => fileInputRef.current?.click()}
             className="text-amber-200 hover:text-white underline flex items-center gap-1"
           >
             <Upload className="w-3 h-3" />
-            <span>Upload My Own Photo</span>
+            <span>Upload Photo</span>
           </button>
         </div>
         <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin">
           {CRAFT_PRESETS.map((preset) => (
             <button
               key={preset.name}
-              onClick={() => handleSelectPreset(preset.url)}
+              onClick={() => handleSelectPreset(preset)}
               className={`px-2.5 py-1.5 rounded-xl text-[11px] font-bold shrink-0 border transition-all flex items-center gap-1.5 ${
                 previewImage === preset.url && !cameraActive
                   ? 'bg-amber-600 text-white border-amber-400 shadow-sm'
@@ -384,14 +457,11 @@ export const CameraStudio: React.FC = () => {
           <span>Upload</span>
         </button>
 
-        {/* Shutter Capture Button */}
+        {/* Shutter Capture Button -> Triggers Step 2 Voice */}
         <button
-          onClick={handleCapturePhoto}
-          disabled={isCapturing}
-          className={`w-20 h-20 rounded-full border-4 border-white flex items-center justify-center p-1 transition-transform active:scale-90 shadow-2xl ${
-            isCapturing ? 'scale-95 opacity-80' : 'hover:scale-105'
-          }`}
-          title="Take Photo with Real-Time AI Enhancement"
+          onClick={handleSnapPhoto}
+          className="w-20 h-20 rounded-full border-4 border-white flex items-center justify-center p-1 transition-transform active:scale-90 shadow-2xl hover:scale-105"
+          title="Snap Photo"
         >
           <div className="w-full h-full rounded-full bg-gradient-to-tr from-amber-600 to-amber-400 flex items-center justify-center text-slate-950">
             <Camera className="w-8 h-8 text-white" />

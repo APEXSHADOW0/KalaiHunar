@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { useDemo } from '../../context/DemoContext';
 import { useLanguage } from '../../i18n/LanguageContext';
 import {
-  Camera,
   Package,
   MessageSquare,
   HelpCircle,
@@ -107,15 +106,19 @@ export const ArtisanHome: React.FC = () => {
       <div className="space-y-3">
         <button
           onClick={() => setArtisanView('camera')}
-          className="w-full p-5 rounded-3xl bg-gradient-to-r from-amber-600 to-terracotta-600 hover:from-amber-500 hover:to-terracotta-500 text-white font-extrabold text-xl shadow-lg border border-amber-500 flex items-center justify-between touch-btn group transition-all"
+          className="w-full p-5 rounded-3xl bg-gradient-to-r from-amber-600 via-amber-500 to-terracotta-600 hover:from-amber-500 hover:to-terracotta-500 text-white font-extrabold text-xl shadow-lg border border-amber-400 flex items-center justify-between touch-btn group transition-all"
         >
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center backdrop-blur-xs group-hover:scale-110 transition-transform">
-              <Camera className="w-7 h-7 text-white" />
+              <Sparkles className="w-7 h-7 text-amber-200" />
             </div>
             <div className="text-left">
-              <span className="block leading-tight text-xl font-bold">{t('addProduct')}</span>
-              <span className="text-xs text-amber-100 font-normal">{t('addProductSub')}</span>
+              <span className="block leading-tight text-xl font-black flex items-center gap-1.5">
+                <span>AI Autopilot: Photo + Voice</span>
+              </span>
+              <span className="text-xs text-amber-100 font-medium">
+                Send pic & audio description — AI does 100% of the rest
+              </span>
             </div>
           </div>
           <ChevronRight className="w-6 h-6 text-white/80 group-hover:translate-x-1 transition-transform" />
